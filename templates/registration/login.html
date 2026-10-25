@@ -1,0 +1,56 @@
+{% extends 'accounts/auth_base.html' %}
+{% block title %}Sign in{% endblock %}
+
+{% block card %}
+<p class="login-box-msg">Sign in to book your seats</p>
+
+{% if form.non_field_errors %}
+<div class="alert alert-danger py-2" role="alert">
+  {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+</div>
+{% endif %}
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+
+  <div class="input-group mb-3">
+    <div class="form-floating">
+      <input type="text" name="username" id="id_username" class="form-control" placeholder="Username"
+             value="{{ form.username.value|default:'' }}" autocomplete="username" autofocus required>
+      <label for="id_username">Username</label>
+    </div>
+    <div class="input-group-text"><span class="bi bi-person"></span></div>
+  </div>
+
+  <div class="input-group mb-3">
+    <div class="form-floating">
+      <input type="password" name="password" id="id_password" class="form-control" placeholder="Password"
+             autocomplete="current-password" required>
+      <label for="id_password">Password</label>
+    </div>
+    <button type="button" class="input-group-text" data-toggle-password="id_password" aria-label="Show password">
+      <i class="bi bi-eye"></i>
+    </button>
+  </div>
+
+  <div class="row align-items-center">
+    <div class="col-7">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="remember_me" id="id_remember_me" checked>
+        <label class="form-check-label" for="id_remember_me">Remember me</label>
+      </div>
+    </div>
+    <div class="col-5">
+      <div class="d-grid">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-box-arrow-in-right me-1"></i> Sign in</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<hr>
+<p class="mb-0 text-center">
+  New here? <a href="{% url 'signup' %}" class="fw-semibold">Create an account</a>
+</p>
+{% endblock %}

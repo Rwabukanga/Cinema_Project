@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Payments{% endblock %}
+{% block page_title %}{% if request.user.is_staff %}Payments{% else %}My Payments{% endif %}{% endblock %}
+{% block breadcrumb %}Payments{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-4 col-12">
+    <div class="info-box mb-3"><span class="info-box-icon text-bg-success shadow-sm"><i class="bi bi-cash-coin"></i></span>
+      <div class="info-box-content"><span class="info-box-text">Paid</span><span class="info-box-number" id="t-paid">…</span></div></div>
+  </div>
+  <div class="col-md-4 col-12">
+    <div class="info-box mb-3"><span class="info-box-icon text-bg-warning shadow-sm"><i class="bi bi-lock-fill"></i></span>
+      <div class="info-box-content"><span class="info-box-text">Reserved (waiting for 2PC)</span><span class="info-box-number" id="t-pending">…</span></div></div>
+  </div>
+  <div class="col-md-4 col-12">
+    <div class="info-box mb-3"><span class="info-box-icon text-bg-danger shadow-sm"><i class="bi bi-arrow-counterclockwise"></i></span>
+      <div class="info-box-content"><span class="info-box-text">Aborted (money released)</span><span class="info-box-number" id="t-aborted">…</span></div></div>
+  </div>
+</div>
+
+<div class="card card-primary card-outline mb-4">
+  <div class="card-header"><h3 class="card-title"><i class="bi bi-credit-card me-2"></i>Payments <span class="badge text-bg-secondary ms-1">Server B</span></h3></div>
+  <div class="card-body">
+    <table class="table table-hover align-middle w-100" id="payments">
+      <thead><tr><th>#</th>{% if request.user.is_staff %}<th>Customer</th>{% endif %}<th class="text-end">Amount</th><th>Status</th><th>Created</th><th>Paid at</th><th class="text-end">Transaction</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  {% comment %} <div class="card-footer text-secondary fs-7">Data: <code>GET {% url 'api:payment-list' %}</code></div> {% endcomment %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const { esc, badge, money, dateTime, shortId, link, apiTable } = Cine;
+  const IS_STAFF = {{ request.user.is_staff|yesno:"true,false" }};
+  const URLS = {
+    list: "{% url 'api:payment-list' %}",
+    customer: "{% url 'web:customer_detail' 0 %}",
+    txn: "{% url 'web:transaction_detail' '00000000-0000-0000-0000-000000000000' %}",
+  };
+  const columns = [{ data: 'id' }];
+  if (IS_STAFF) columns.push({ data: 'customer_name', render: (v, t, row) => `<a href="${link(URLS.customer, row.customer_id)}">${esc(v)}</a>` });
+  columns.push(
+    { data: 'amount', className: 'text-end', render: (v, type) => (type === 'display' ? `<b>${money(v)}</b>` : Number(v)) },
+    { data: 'status', render: (v) => badge(v) },
+    { data: 'created_at', render: (v, type) => (type === 'display' ? dateTime(v) : v) },
+    { data: 'paid_at', render: (v, type) => (type === 'display' ? dateTime(v) : v) },
+    { data: 'txn_id', className: 'text-end', render: (v) => `<a href="${link(URLS.txn, v)}">${shortId(v)}</a>` },
+  );
+  apiTable(document.getElementById('payments'), {
+    url: URLS.list,
+    columns,
+    empty: 'No payments yet.',
+    onLoad: (rows) => ['paid', 'pending', 'aborted'].forEach((s) => {
+      const list = rows.filter((r) => r.status === s);
+      const total = list.reduce((sum, r) => sum + Number(r.amount), 0);
+      document.getElementById('t-' + s).innerHTML = `${money(total)} <small class="text-secondary fw-normal">(${list.length})</small>`;
+    }),
+  });
+});
+</script>
+{% endblock %}

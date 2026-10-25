@@ -1,0 +1,106 @@
+{% load static %}
+<aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
+
+  <!-- Brand -->
+  <div class="sidebar-brand">
+    <a href="{% url 'dashboard' %}" class="brand-link">
+      <span class="brand-image brand-icon shadow"><i class="bi bi-film"></i></span>
+      <span class="brand-text fw-light">Cinema<b>Booking</b></span>
+    </a>
+  </div>
+
+  <div class="sidebar-wrapper">
+    <nav class="mt-2" aria-label="Main navigation">
+      <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation" data-accordion="false" id="navigation">
+        {% with ns=request.resolver_match.namespace|default:'' name=request.resolver_match.url_name|default:'' %}
+
+        <!-- Dashboard -->
+        <li class="nav-item">
+          <a href="{% url 'dashboard' %}" class="nav-link {% if not ns and name == 'dashboard' %}active{% endif %}">
+            <i class="nav-icon bi bi-speedometer2"></i>
+            <p>Dashboard</p>
+          </a>
+        </li>
+
+        <!-- Server A -->
+        <li class="nav-header">CINEMA · SERVER A</li>
+        <li class="nav-item">
+          <a href="{% url 'web:movie_list' %}" class="nav-link {% if name == 'movie_list' %}active{% endif %}">
+            <i class="nav-icon bi bi-film"></i>
+            <p>Movies</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="{% url 'web:showtime_list' %}" class="nav-link {% if 'showtime' in name %}active{% endif %}">
+            <i class="nav-icon bi bi-grid-3x3-gap"></i>
+            <p>Showtimes &amp; Seats</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="{% url 'web:booking_list' %}" class="nav-link {% if name == 'booking_list' %}active{% endif %}">
+            <i class="nav-icon bi bi-ticket-perforated"></i>
+            <p>{% if request.user.is_staff %}Bookings{% else %}My Bookings{% endif %}</p>
+          </a>
+        </li>
+
+        <!-- Server B -->
+        <li class="nav-header">PAYMENTS · SERVER B</li>
+        {% if request.user.is_staff %}
+        <li class="nav-item">
+          <a href="{% url 'web:customer_list' %}" class="nav-link {% if 'customer' in name %}active{% endif %}">
+            <i class="nav-icon bi bi-people-fill"></i>
+            <p>Customers &amp; Wallets</p>
+          </a>
+        </li>
+        {% else %}
+        <li class="nav-item">
+          <a href="{% url 'web:my_wallet' %}" class="nav-link {% if 'customer' in name %}active{% endif %}">
+            <i class="nav-icon bi bi-wallet2"></i>
+            <p>My Wallet</p>
+          </a>
+        </li>
+        {% endif %}
+        <li class="nav-item">
+          <a href="{% url 'web:payment_list' %}" class="nav-link {% if name == 'payment_list' %}active{% endif %}">
+            <i class="nav-icon bi bi-credit-card"></i>
+            <p>Payments</p>
+          </a>
+        </li>
+
+        <!-- Coordinator -->
+        <li class="nav-header">COORDINATOR</li>
+        <li class="nav-item">
+          <a href="{% url 'web:transaction_list' %}" class="nav-link {% if 'transaction' in name %}active{% endif %}">
+            <i class="nav-icon bi bi-diagram-3"></i>
+            <p>
+              Transaction Log
+              {% if alert_count %}<span class="nav-badge badge text-bg-danger me-3">{{ alert_count }}</span>{% endif %}
+            </p>
+          </a>
+        </li>
+
+        <!-- API -->
+      {% comment %}   <li class="nav-header">DEVELOPERS</li>
+        <li class="nav-item">
+          <a href="{% url 'web:api_guide' %}" class="nav-link {% if name == 'api_guide' %}active{% endif %}">
+            <i class="nav-icon bi bi-braces"></i>
+            <p>REST API</p>
+          </a>
+        </li> {% endcomment %}
+
+        <!-- System (staff only) -->
+        {% if request.user.is_staff %}
+        <li class="nav-header">SYSTEM</li>
+        <li class="nav-item">
+          <a href="{% url 'admin:index' %}" class="nav-link">
+            <i class="nav-icon bi bi-gear"></i>
+            <p>Admin Site</p>
+          </a>
+        </li>
+        {% endif %}
+
+        {% endwith %}
+      </ul>
+    </nav>
+  </div>
+</aside>

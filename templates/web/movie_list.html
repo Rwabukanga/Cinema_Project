@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}Movies{% endblock %}
+{% block page_title %}Movies{% endblock %}
+{% block breadcrumb %}Movies{% endblock %}
+
+{% block content %}
+<div class="card card-primary card-outline mb-4">
+  <div class="card-header d-flex align-items-center">
+    <h3 class="card-title mb-0"><i class="bi bi-film me-2"></i>All movies <span class="badge text-bg-secondary ms-1">Server A</span></h3>
+    {% if request.user.is_staff %}
+    <button type="button" class="btn btn-primary btn-sm ms-auto" id="add-movie"><i class="bi bi-plus-lg me-1"></i> Add movie</button>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    <table class="table table-hover align-middle w-100" id="movies">
+      <thead><tr><th>Title</th><th>Genre</th><th>Duration</th><th>Showtimes</th><th>Seats booked</th><th class="text-end">Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  {% comment %} <div class="card-footer text-secondary fs-7">Data: <code>GET {% url 'api:movie-list' %}</code></div> {% endcomment %}
+</div>
+
+{% if request.user.is_staff %}
+<!-- Add / edit movie (sends JSON to the API) -->
+<div class="modal fade" id="movie-modal" tabindex="-1" aria-labelledby="movie-modal-title" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="movie-form" novalidate>
+      <div class="modal-header">
+        <h5 class="modal-title" id="movie-modal-title">Add movie</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-danger form-errors d-none"></div>
+        <div class="mb-3"><label class="form-label" for="m-title">Title</label><input class="form-control" id="m-title" name="title" required></div>
+        <div class="mb-3"><label class="form-label" for="m-genre">Genre</label><input class="form-control" id="m-genre" name="genre"></div>
+        <div class="mb-3"><label class="form-label" for="m-duration">Duration (minutes)</label><input class="form-control" id="m-duration" name="duration_min" type="number" min="1" required></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const { esc, link, apiTable, apiForm, fillForm, confirmDelete, notify, modal } = Cine;
+  const IS_STAFF = {{ request.user.is_staff|yesno:"true,false" }};
+  const URLS = {
+    list: "{% url 'api:movie-list' %}",
+    detail: "{% url 'api:movie-detail' 0 %}",
+    showtimes: "{% url 'web:showtime_list' %}",
+  };
+  let rows = [];
+
+  const movies = apiTable(document.getElementById('movies'), {
+    url: URLS.list,
+    empty: 'No movies yet.',
+    onLoad: (data) => { rows = data; },
+    columns: [
+      { data: 'title', render: (v) => `<b>${esc(v)}</b>` },
+      { data: 'genre', render: (v) => esc(v || '—') },
+      { data: 'duration_min', render: (v) => `${v} min` },
+      { data: 'showtime_count', render: (v, t, row) => `<a href="${URLS.showtimes}?movie=${row.id}">${v} showtime${v === 1 ? '' : 's'}</a>` },
+      { data: 'booked_seats' },
+      { data: null, orderable: false, className: 'text-end', render: (v, t, row) =>
+          `<a class="btn btn-sm btn-outline-primary" href="${URLS.showtimes}?movie=${row.id}"><i class="bi bi-calendar-event"></i> Showtimes</a>` +
+          (IS_STAFF ? ` <button class="btn btn-sm btn-outline-secondary" data-edit="${row.id}" aria-label="Edit"><i class="bi bi-pencil"></i></button>
+                       <button class="btn btn-sm btn-outline-danger" data-delete="${row.id}" aria-label="Delete"><i class="bi bi-trash"></i></button>` : '') },
+    ],
+  });
+
+  if (!IS_STAFF) return;
+  const form = document.getElementById('movie-form');
+  const dialog = document.getElementById('movie-modal');
+
+  function open(movie) {
+    form.reset();
+    fillForm(form, movie || {});
+    form.dataset.method = movie ? 'PUT' : 'POST';
+    form.dataset.url = movie ? link(URLS.detail, movie.id) : URLS.list;
+    document.getElementById('movie-modal-title').textContent = movie ? 'Edit movie' : 'Add movie';
+    modal(dialog).show();
+  }
+
+  document.getElementById('add-movie').addEventListener('click', () => open(null));
+  document.getElementById('movies').addEventListener('click', (e) => {
+    const edit = e.target.closest('[data-edit]');
+    const del = e.target.closest('[data-delete]');
+    if (edit) open(rows.find((r) => r.id == edit.dataset.edit));
+    if (del) {
+      const movie = rows.find((r) => r.id == del.dataset.delete);
+      confirmDelete(link(URLS.detail, movie.id), `“${movie.title}”`, () => movies.reload());
+    }
+  });
+
+  apiForm(form, {
+    onSuccess: (movie) => {
+      modal(dialog).hide();
+      notify(`Movie “${movie.title}” was saved.`);
+      movies.reload();
+    },
+  });
+});
+</script>
+{% endblock %}

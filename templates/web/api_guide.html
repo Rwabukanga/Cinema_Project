@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}REST API{% endblock %}
+{% block page_title %}REST API{% endblock %}
+{% block breadcrumb %}REST API{% endblock %}
+
+{% block content %}
+<div class="callout callout-info mb-4">
+  <h5><i class="bi bi-info-circle me-1"></i> Every page in CineSync uses this API</h5>
+  <p class="mb-0">The pages are built with HTML and JavaScript; their data comes from these endpoints and every button calls one of them.
+  Click a <b>GET</b> link to open Django REST Framework's browsable API. From Postman or curl, log in with Basic authentication.</p>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body p-0">
+    <table class="table table-striped align-middle mb-0">
+      <thead><tr><th style="width:110px">Method</th><th>Endpoint</th><th>What it does</th><th>Who</th></tr></thead>
+      <tbody>
+        <tr class="table-light"><td colspan="4" class="fw-bold">Server A · Cinema</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span> <span class="badge text-bg-primary">POST</span></td><td><a href="{% url 'api:movie-list' %}"><code>{% url 'api:movie-list' %}</code></a></td><td>List movies · add a movie</td><td>All · staff adds</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span> <span class="badge text-bg-warning">PUT</span> <span class="badge text-bg-danger">DELETE</span></td><td><code>/api/movies/&lt;id&gt;/</code></td><td>One movie · edit · delete (refused if it has confirmed bookings)</td><td>All · staff edits</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span> <span class="badge text-bg-primary">POST</span></td><td><a href="{% url 'api:showtime-list' %}"><code>{% url 'api:showtime-list' %}</code></a></td><td>List showtimes (<code>?movie=ID</code>) · add one (its seats are created from <code>rows</code> and <code>seats_per_row</code>)</td><td>All · staff adds</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span> <span class="badge text-bg-warning">PATCH</span> <span class="badge text-bg-danger">DELETE</span></td><td><code>/api/showtimes/&lt;id&gt;/</code></td><td>One showtime · edit · delete</td><td>All · staff edits</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span></td><td><code>/api/showtimes/&lt;id&gt;/seats/</code></td><td>The seat map of a showtime</td><td>All</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span></td><td><a href="{% url 'api:seat-list' %}"><code>{% url 'api:seat-list' %}</code></a></td><td>Seats (<code>?showtime=ID</code>)</td><td>All</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span></td><td><a href="{% url 'api:booking-list' %}"><code>{% url 'api:booking-list' %}</code></a></td><td>Bookings (<code>?showtime=</code>, <code>?customer=</code>, <code>?status=</code>)</td><td>Staff: all · customer: own</td></tr>
+
+        <tr class="table-light"><td colspan="4" class="fw-bold">Server B · Payments</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span> <span class="badge text-bg-primary">POST</span></td><td><a href="{% url 'api:customer-list' %}"><code>{% url 'api:customer-list' %}</code></a></td><td>Customers with their wallet · add a customer (+ wallet)</td><td>Staff: all · customer: own</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span> <span class="badge text-bg-warning">PATCH</span> <span class="badge text-bg-danger">DELETE</span></td><td><code>/api/customers/&lt;id&gt;/</code></td><td>One customer · edit · delete</td><td>Staff edits</td></tr>
+        <tr><td><span class="badge text-bg-primary">POST</span></td><td><code>/api/customers/&lt;id&gt;/top-up/</code></td><td>Add money: <code>{"amount": 50}</code></td><td>Staff · or the customer</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span></td><td><a href="{% url 'api:payment-list' %}"><code>{% url 'api:payment-list' %}</code></a></td><td>Payments (<code>?customer=ID</code>)</td><td>Staff: all · customer: own</td></tr>
+
+        <tr class="table-light"><td colspan="4" class="fw-bold">Coordinator · Two-phase commit</td></tr>
+        <tr><td><span class="badge text-bg-primary">POST</span></td><td><a href="{% url 'api:book' %}"><code>{% url 'api:book' %}</code></a></td><td>Book a seat: <code>{"seat": 12, "scenario": "none"}</code> (staff also send <code>"customer"</code>). Runs 2PC and returns the transaction.</td><td>All</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span></td><td><a href="{% url 'api:transaction-list' %}"><code>{% url 'api:transaction-list' %}</code></a></td><td>The coordinator log (<code>?open=1</code> for unfinished ones)</td><td>Staff: all · customer: own</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span></td><td><code>/api/transactions/&lt;uuid&gt;/</code></td><td>One transaction and what each server did</td><td>Staff · or the customer</td></tr>
+        <tr><td><span class="badge text-bg-primary">POST</span></td><td><code>{% url 'api:transaction-recover' %}</code></td><td>Recovery: finish every open transaction</td><td>Staff</td></tr>
+
+        <tr class="table-light"><td colspan="4" class="fw-bold">Other</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span></td><td><a href="{% url 'api:dashboard' %}"><code>{% url 'api:dashboard' %}</code></a></td><td>All numbers on the dashboard</td><td>All</td></tr>
+        <tr><td><span class="badge text-bg-success">GET</span></td><td><a href="{% url 'api:me' %}"><code>{% url 'api:me' %}</code></a></td><td>The logged-in user and their wallet</td><td>All</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header"><h3 class="card-title">Try it with curl</h3></div>
+  <div class="card-body">
+<pre class="mb-0"><code># list showtimes
+curl -u alice:demo12345 http://127.0.0.1:8000/api/showtimes/
+
+# book seat 5 (two-phase commit)
+curl -u alice:demo12345 -X POST -H "Content-Type: application/json" \
+     -d '{"seat": 5}' http://127.0.0.1:8000/api/book/</code></pre>
+  </div>
+</div>
+{% endblock %}

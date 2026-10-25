@@ -1,0 +1,178 @@
+{% load i18n %}
+<nav class="app-header navbar navbar-expand bg-body">
+  <div class="container-fluid">
+
+    <!-- Left: sidebar toggle + quick links -->
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button" aria-label="Toggle sidebar">
+          <i class="bi bi-list"></i>
+        </a>
+      </li>
+      <li class="nav-item d-none d-md-block">
+        <a href="{% url 'dashboard' %}" class="nav-link">
+          <i class="bi bi-grid-1x2 me-1" aria-hidden="true"></i> Dashboard
+        </a>
+      </li>
+      <li class="nav-item d-none d-md-block">
+        <a href="{% url 'web:showtime_list' %}" class="nav-link">
+          <i class="bi bi-ticket-perforated me-1" aria-hidden="true"></i> Book a ticket
+        </a>
+      </li>
+    </ul>
+
+    <!-- Right side -->
+    <ul class="navbar-nav ms-auto">
+
+      <!-- Latest confirmed bookings -->
+      <li class="nav-item dropdown">
+        <a class="nav-link" data-bs-toggle="dropdown" href="#" aria-label="Latest bookings: {{ nav_new_bookings }}">
+          <i class="bi bi-ticket-perforated"></i>
+          {% if nav_new_bookings %}<span class="navbar-badge badge text-bg-danger">{{ nav_new_bookings }}</span>{% endif %}
+        </a>
+        <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
+          {% for b in nav_latest_bookings %}
+          <a href="{% url 'web:transaction_detail' b.txn_id %}" class="dropdown-item">
+            <div class="d-flex">
+              <div class="flex-shrink-0">
+                <span class="avatar-initials avatar-50 me-3">{{ b.customer_name|slice:":1"|upper }}</span>
+              </div>
+              <div class="flex-grow-1">
+                <p class="dropdown-item-title">{{ b.customer_name|truncatechars:28 }}</p>
+                <p class="fs-7">Seat {{ b.seat.seat_no }} · {{ b.seat.showtime.movie.title|truncatechars:22 }}</p>
+                <p class="fs-7 text-secondary">
+                  <i class="bi bi-clock-fill me-1"></i> {{ b.ago }} ago
+                </p>
+              </div>
+            </div>
+          </a>
+          <div class="dropdown-divider"></div>
+          {% empty %}
+          <span class="dropdown-item text-secondary">No bookings yet.</span>
+          <div class="dropdown-divider"></div>
+          {% endfor %}
+          <a href="{% url 'web:booking_list' %}" class="dropdown-item dropdown-footer">See all bookings</a>
+        </div>
+      </li>
+
+      <!-- Notifications: the latest transactions from the coordinator -->
+      <li class="nav-item dropdown">
+        <a class="nav-link" data-bs-toggle="dropdown" href="#" aria-label="Notifications: {{ nav_notification_count }}">
+          <i class="bi bi-bell-fill"></i>
+          {% if alert_count %}<span class="navbar-badge badge text-bg-danger">{{ alert_count }}</span>
+          {% elif nav_notification_count %}<span class="navbar-badge badge text-bg-warning">{{ nav_notification_count }}</span>{% endif %}
+        </a>
+        <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
+          <span class="dropdown-item dropdown-header">
+            {% if alert_count %}{{ alert_count }} open transaction{{ alert_count|pluralize }} need recovery
+            {% else %}{{ nav_notification_count }} recent transaction{{ nav_notification_count|pluralize }}{% endif %}
+          </span>
+          <div class="dropdown-divider"></div>
+          {% for n in nav_notifications %}
+          <a href="{{ n.url }}" class="dropdown-item">
+            <i class="bi {{ n.icon }} me-2"></i> {{ n.text|truncatechars:30 }}
+            {% if n.when %}<span class="float-end text-secondary fs-7">{{ n.when }}</span>{% endif %}
+          </a>
+          <div class="dropdown-divider"></div>
+          {% endfor %}
+          <a href="{% url 'web:transaction_list' %}" class="dropdown-item dropdown-footer">Open the transaction log</a>
+        </div>
+      </li>
+
+      <!-- Language: switches Django's language (dates, form messages) -->
+      {% get_current_language as CURRENT_LANGUAGE %}
+      {% get_available_languages as AVAILABLE_LANGUAGES %}
+      {% get_language_info_list for AVAILABLE_LANGUAGES as LANGUAGE_LIST %}
+      <li class="nav-item dropdown">
+        <a class="nav-link" href="#" id="language-menu" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Change language">
+          <i class="bi bi-translate" aria-hidden="true"></i>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="language-menu">
+          {% for language in LANGUAGE_LIST %}
+          <li>
+            <form action="{% url 'set_language' %}" method="post">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <input type="hidden" name="language" value="{{ language.code }}">
+              <button type="submit" class="dropdown-item {% if language.code == CURRENT_LANGUAGE %}active{% endif %}">
+                {{ language.name_local|capfirst }}{% if language.code == CURRENT_LANGUAGE %} <i class="bi bi-check-lg ms-2" aria-hidden="true"></i>{% endif %}
+              </button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+      </li>
+
+      <!-- Full screen -->
+      <li class="nav-item">
+        <a class="nav-link" href="#" data-lte-toggle="fullscreen" aria-label="Toggle fullscreen">
+          <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
+          <i data-lte-icon="minimize" class="bi bi-fullscreen-exit d-none"></i>
+        </a>
+      </li>
+
+      <!-- Light / dark mode (handled by adminlte.js) -->
+      <li class="nav-item dropdown">
+        <a class="nav-link" href="#" id="bd-theme" aria-label="Toggle color scheme" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-sun-fill" data-lte-theme-icon="light"></i>
+          <i class="bi bi-moon-fill d-none" data-lte-theme-icon="dark"></i>
+          <i class="bi bi-circle-half d-none" data-lte-theme-icon="auto"></i>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="bd-theme" style="--bs-dropdown-min-width: 8rem">
+          <li>
+            <button type="button" class="dropdown-item d-flex align-items-center" data-bs-theme-value="light" aria-pressed="false">
+              <i class="bi bi-sun-fill me-2"></i> Light <i class="bi bi-check-lg ms-auto d-none"></i>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="dropdown-item d-flex align-items-center" data-bs-theme-value="dark" aria-pressed="false">
+              <i class="bi bi-moon-fill me-2"></i> Dark <i class="bi bi-check-lg ms-auto d-none"></i>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="dropdown-item d-flex align-items-center active" data-bs-theme-value="auto" aria-pressed="true">
+              <i class="bi bi-circle-half me-2"></i> Auto <i class="bi bi-check-lg ms-auto d-none"></i>
+            </button>
+          </li>
+        </ul>
+      </li>
+
+      <!-- User menu -->
+      {% if user.is_authenticated %}
+      <li class="nav-item dropdown user-menu">
+        <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+          <span class="avatar-initials user-image shadow">{{ user.get_full_name|default:user.username|slice:":1"|upper }}</span>
+          <span class="d-none d-xl-inline">{{ user.get_full_name|default:user.username }}</span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
+          <li class="user-header text-bg-primary">
+            <span class="avatar-initials avatar-90 shadow">{{ user.get_full_name|default:user.username|slice:":1"|upper }}</span>
+            <p>
+              {{ user.get_full_name|default:user.username }} -
+              {% if user.is_superuser %}Administrator{% elif user.is_staff %}Staff{% else %}User{% endif %}
+              <small>Member since {{ user.date_joined|date:"M. Y" }}</small>
+            </p>
+          </li>
+          <li class="user-footer">
+            {% if nav_customer %}
+            <a href="{% url 'web:my_wallet' %}" class="btn btn-outline-secondary"><i class="bi bi-wallet2 me-1"></i>My wallet</a>
+            {% elif user.is_staff %}
+            <a href="{% url 'admin:auth_user_change' user.id %}" class="btn btn-outline-secondary">Profile</a>
+            {% endif %}
+            <form action="{% url 'logout' %}" method="post" class="d-inline float-end">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-danger">Sign out</button>
+            </form>
+          </li>
+        </ul>
+      </li>
+      {% else %}
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}">
+          <i class="bi bi-box-arrow-in-right me-1"></i> Sign in
+        </a>
+      </li>
+      {% endif %}
+    </ul>
+  </div>
+</nav>

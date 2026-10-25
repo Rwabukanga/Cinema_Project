@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}Transaction{% endblock %}
+{% block page_title %}Transaction <code class="fs-4">TX-{{ log.txn_id|stringformat:"s"|slice:":8"|upper }}</code>{% endblock %}
+{% block breadcrumb_parent %}<li class="breadcrumb-item"><a href="{% url 'web:transaction_list' %}">Transactions</a></li>{% endblock %}
+{% block breadcrumb %}Details{% endblock %}
+
+{% block content %}
+<div id="outcome"></div>
+
+<!-- The four steps of two-phase commit -->
+<div class="row g-3 mb-4" id="steps">
+  <div class="col-md-3"><div class="card step-card h-100" id="step-1"><div class="card-body">
+    <span class="step-num">1</span><h3 class="fs-6 fw-bold mb-1">Begin</h3><p class="mb-0 text-secondary" id="step-1-text">Logged as STARTED</p></div></div></div>
+  <div class="col-md-3"><div class="card step-card h-100" id="step-2"><div class="card-body">
+    <span class="step-num">2</span><h3 class="fs-6 fw-bold mb-1">Phase 1: Vote</h3>
+    <p class="mb-0">Server A <span id="vote-a"></span></p><p class="mb-0">Server B <span id="vote-b"></span></p></div></div></div>
+  <div class="col-md-3"><div class="card step-card h-100" id="step-3"><div class="card-body">
+    <span class="step-num">3</span><h3 class="fs-6 fw-bold mb-1">Decision (logged first)</h3><p class="mb-0" id="step-3-text">…</p></div></div></div>
+  <div class="col-md-3"><div class="card step-card h-100" id="step-4"><div class="card-body">
+    <span class="step-num">4</span><h3 class="fs-6 fw-bold mb-1">Phase 2: Tell everyone</h3><p class="mb-0" id="step-4-text">…</p></div></div></div>
+</div>
+
+<div class="row">
+  <div class="col-lg-4">
+    <div class="card mb-4">
+      <div class="card-header text-bg-dark"><h3 class="card-title">Coordinator</h3></div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item d-flex justify-content-between"><span>State</span><span id="d-state">…</span></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Customer</span><b id="d-customer">…</b></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Amount</span><b id="d-amount">…</b></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Started</span><span id="d-created">…</span></li>
+        <li class="list-group-item text-secondary fs-7" id="d-message"></li>
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card card-info card-outline mb-4">
+      <div class="card-header"><h3 class="card-title"><i class="bi bi-ticket-perforated me-1"></i> Server A · Seat &amp; booking</h3></div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item d-flex justify-content-between"><span>Movie</span><a id="d-movie" href="#">…</a></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Showtime</span><span id="d-start">…</span></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Seat</span><b id="d-seat">…</b></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Seat status now</span><span id="d-seat-status">…</span></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Booking</span><span id="d-booking">…</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card card-warning card-outline mb-4">
+      <div class="card-header"><h3 class="card-title"><i class="bi bi-credit-card me-1"></i> Server B · Payment</h3></div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item d-flex justify-content-between"><span>Payment</span><span id="d-payment">…</span></li>
+        <li class="list-group-item text-secondary fs-7" id="d-payment-note"></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex gap-2 mb-4">
+  <a href="{% url 'web:showtime_list' %}" class="btn btn-primary"><i class="bi bi-ticket-perforated me-1"></i> Book another seat</a>
+  <a href="{% url 'web:transaction_list' %}" class="btn btn-outline-secondary">Back to the log</a>
+  <a href="{% url 'api:transaction-detail' log.pk %}" class="btn btn-outline-secondary ms-auto"><i class="bi bi-braces me-1"></i> View as JSON</a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async function () {
+  const { Api, esc, badge, vote, money, dateTime, link, notify } = Cine;
+  const URLS = {
+    api: "{% url 'api:transaction-detail' log.pk %}",
+    seatMap: "{% url 'web:showtime_detail' 0 %}",
+  };
+  const set = (id, html) => (document.getElementById(id).innerHTML = html);
+  const done = (n) => document.getElementById('step-' + n).classList.add('done');
+
+  let t;
+  try { t = await Api.get(URLS.api); } catch (e) { notify(e.message, 'danger'); return; }
+
+  // Outcome banner
+  const crashed = new URLSearchParams(location.search).has('crashed');
+  const outcome = t.state === 'committed'
+    ? ['success', 'check-circle-fill', 'Booking COMMITTED on both servers. Enjoy the movie!']
+    : t.state === 'aborted'
+      ? ['danger', 'x-circle-fill', 'Booking ABORTED. Both servers were rolled back, so nothing changed.']
+      : ['warning', 'exclamation-triangle-fill', (crashed ? 'The coordinator crashed before deciding. ' : '') +
+         'Every server voted YES but no decision was logged, so the seat and the money stay HELD (2PC is blocking). Run recovery on the Transaction Log page.'];
+  set('outcome', `<div class="alert alert-${outcome[0]} d-flex align-items-center"><i class="bi bi-${outcome[1]} fs-4 me-2"></i><div>${esc(outcome[2])}</div></div>`);
+
+  // Steps
+  done(1);
+  set('vote-a', vote(t.seat_vote));
+  set('vote-b', vote(t.payment_vote));
+  if (t.seat_vote !== null) done(2);
+  if (t.state === 'committed' || t.state === 'aborted') { done(3); set('step-3-text', badge(t.state, t.state === 'committed' ? 'COMMIT' : 'ABORT')); }
+  else set('step-3-text', '<span class="text-warning-emphasis">Not written yet</span>');
+  if (t.completed) { done(4); set('step-4-text', 'All servers updated'); }
+  else set('step-4-text', '<span class="text-danger">Waiting for recovery</span>');
+
+  // Coordinator
+  set('d-state', badge(t.state, t.state_display));
+  set('d-customer', esc(t.customer_name));
+  set('d-amount', money(t.amount));
+  set('d-created', dateTime(t.created_at));
+  set('d-message', esc(t.message));
+
+  // Server A
+  const movie = document.getElementById('d-movie');
+  movie.textContent = t.movie_title || '—';
+  if (t.showtime) movie.href = link(URLS.seatMap, t.showtime);
+  set('d-start', `${dateTime(t.start_time)} · ${esc(t.hall || '')}`);
+  set('d-seat', esc(t.seat_no || '—'));
+  set('d-seat-status', t.seat_status ? badge(t.seat_status) : '—');
+  set('d-booking', t.booking_status ? badge(t.booking_status) : '<span class="text-secondary">not created (seat was taken)</span>');
+
+  // Server B
+  set('d-payment', t.payment_status ? badge(t.payment_status) : '<span class="text-secondary">not created</span>');
+  set('d-payment-note', t.payment_status === 'paid' ? 'The reserved money was taken from the wallet.'
+    : t.payment_status === 'aborted' ? 'The reserved money was released back to the wallet.'
+      : t.payment_status === 'pending' ? 'The money is reserved and waiting for the coordinator\'s decision.'
+        : 'Server B voted NO or did not answer, so no payment was made.');
+});
+</script>
+{% endblock %}

@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% block title %}{{ showtime.movie.title }}{% endblock %}
+{% block page_title %}{{ showtime.movie.title }}{% endblock %}
+{% block breadcrumb_parent %}<li class="breadcrumb-item"><a href="{% url 'web:showtime_list' %}">Showtimes</a></li>{% endblock %}
+{% block breadcrumb %}Seat map{% endblock %}
+
+{% block content %}
+<div class="row">
+  <!-- Seat map -->
+  <div class="col-lg-8">
+    <div class="card card-primary card-outline mb-4">
+      <div class="card-header">
+        <h3 class="card-title"><i class="bi bi-grid-3x3-gap me-2"></i>{{ showtime.hall }} · <span id="st-start">{{ showtime.start_time|date:"D d M, H:i" }}</span></h3>
+        <div class="card-tools">
+          <span class="badge text-bg-success" id="count-available">…</span>
+          <span class="badge text-bg-warning" id="count-held">…</span>
+          <span class="badge text-bg-secondary" id="count-booked">…</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="screen">SCREEN</div>
+        <div class="seatmap" id="seatmap" role="radiogroup" aria-label="Seats"><p class="text-secondary">Loading seats…</p></div>
+        <p class="seat-legend">
+          <span class="seat seat-available"><span>A1</span></span> Available
+          <span class="seat seat-held"><span>A1</span></span> Held (Phase 1, waiting)
+          <span class="seat seat-booked"><span>A1</span></span> Booked
+        </p>
+      </div>
+      <div class="card-footer text-secondary fs-7">Seats: <code>GET {% url 'api:showtime-seats' showtime.pk %}</code></div>
+    </div>
+  </div>
+
+  <!-- Booking form -->
+  <div class="col-lg-4">
+    <div class="card card-success card-outline mb-4">
+      <div class="card-header"><h3 class="card-title"><i class="bi bi-ticket-perforated me-2"></i>Book a ticket</h3></div>
+      <form id="book-form" data-url="{% url 'api:book' %}" data-method="POST" novalidate>
+        <div class="card-body">
+          <div class="alert alert-danger form-errors d-none"></div>
+          <dl class="row mb-2">
+            <dt class="col-5">Movie</dt><dd class="col-7">{{ showtime.movie.title }}</dd>
+            <dt class="col-5">Price</dt><dd class="col-7 fw-bold">{{ showtime.ticket_price }}</dd>
+            <dt class="col-5">Seat</dt><dd class="col-7"><span id="chosen-seat" class="badge text-bg-light border">choose on the map</span></dd>
+          </dl>
+          <input type="hidden" name="seat" id="seat-input">
+
+          {% if request.user.is_staff %}
+          <div class="mb-3">
+            <label class="form-label" for="customer">Customer</label>
+            <select class="form-select" name="customer" id="customer" required><option value="">Loading…</option></select>
+          </div>
+          {% else %}
+          <div class="alert alert-light border mb-3">
+            <i class="bi bi-wallet2 me-1"></i> Paid from your wallet. Available: <b id="my-available">…</b>
+          </div>
+          {% endif %}
+
+          <div class="mb-1">
+            <label class="form-label" for="scenario">Scenario (for the demo)</label>
+            <select class="form-select" name="scenario" id="scenario">
+              {% for value, label in scenarios %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-text">The two failure scenarios show how two-phase commit reacts to a server problem.</div>
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-success w-100" id="book-button" disabled>
+            <i class="bi bi-check2-circle me-1"></i> Book ticket
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Bookings of this showtime -->
+<div class="card mb-4">
+  <div class="card-header text-bg-dark"><h3 class="card-title">{% if request.user.is_staff %}Bookings for this showtime{% else %}My bookings for this showtime{% endif %}</h3></div>
+  <div class="card-body">
+    <table class="table table-hover align-middle w-100" id="bookings">
+      <thead><tr><th>Seat</th><th>Customer</th><th>Status</th><th>Booked at</th><th class="text-end">Transaction</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const { Api, esc, badge, money, dateTime, shortId, link, apiTable, apiForm, notify } = Cine;
+  const IS_STAFF = {{ request.user.is_staff|yesno:"true,false" }};
+  const URLS = {
+    seats: "{% url 'api:showtime-seats' showtime.pk %}",
+    bookings: "{% url 'api:booking-list' %}?showtime={{ showtime.pk }}",
+    customers: "{% url 'api:customer-list' %}",
+    me: "{% url 'api:me' %}",
+    txn: "{% url 'web:transaction_detail' '00000000-0000-0000-0000-000000000000' %}",
+  };
+  const map = document.getElementById('seatmap');
+  const seatInput = document.getElementById('seat-input');
+  const bookButton = document.getElementById('book-button');
+
+  // ---- Seat map (from the API) ----
+  async function loadSeats() {
+    const seats = await Api.get(URLS.seats);
+    const rows = {};
+    seats.forEach((s) => (rows[s.row] = rows[s.row] || []).push(s));
+    map.innerHTML = Object.keys(rows).sort().map((row) => `
+      <div class="seatrow"><span class="rowlabel">${esc(row)}</span>
+        ${rows[row].sort((a, b) => a.number - b.number).map((s) => `
+          <label class="seat seat-${s.status}" title="${esc(s.seat_no)}: ${s.status}">
+            <input type="radio" name="seat-choice" value="${s.id}" data-label="${esc(s.seat_no)}" ${s.status !== 'available' ? 'disabled' : ''}>
+            <span>${esc(s.seat_no)}</span>
+          </label>`).join('')}
+      </div>`).join('');
+    const count = (st) => seats.filter((s) => s.status === st).length;
+    document.getElementById('count-available').textContent = `${count('available')} available`;
+    document.getElementById('count-held').textContent = `${count('held')} held`;
+    document.getElementById('count-booked').textContent = `${count('booked')} booked`;
+    seatInput.value = '';
+    bookButton.disabled = true;
+    document.getElementById('chosen-seat').textContent = 'choose on the map';
+  }
+
+  map.addEventListener('change', (e) => {
+    if (e.target.name !== 'seat-choice') return;
+    seatInput.value = e.target.value;
+    document.getElementById('chosen-seat').textContent = e.target.dataset.label;
+    document.getElementById('chosen-seat').className = 'badge text-bg-primary';
+    bookButton.disabled = false;
+  });
+
+  // ---- Who pays ----
+  if (IS_STAFF) {
+    Api.get(URLS.customers).then((customers) => {
+      document.getElementById('customer').innerHTML = '<option value="">Choose…</option>' +
+        customers.map((c) => `<option value="${c.id}">${esc(c.full_name)} (available ${money(c.available)})</option>`).join('');
+    }).catch((e) => notify(e.message, 'danger'));
+  } else {
+    Api.get(URLS.me).then((me) => {
+      document.getElementById('my-available').textContent = me.customer ? money(me.customer.available) : 'no wallet';
+    });
+  }
+
+  // ---- Bookings table ----
+  apiTable(document.getElementById('bookings'), {
+    url: URLS.bookings,
+    empty: 'No bookings yet.',
+    columns: [
+      { data: 'seat_no', render: (v) => `<b>${esc(v)}</b>` },
+      { data: 'customer_name', render: esc },
+      { data: 'status', render: (v) => badge(v) },
+      { data: 'booked_at', render: (v, type) => (type === 'display' ? dateTime(v) : v) },
+      { data: 'txn_id', className: 'text-end', render: (v) => `<a href="${link(URLS.txn, v)}">${shortId(v)}</a>` },
+    ],
+  });
+
+  // ---- Book: POST /api/book/ runs the two-phase commit ----
+  apiForm(document.getElementById('book-form'), {
+    onSuccess: (txn) => {
+      // The transaction page explains what happened (committed, aborted or crashed).
+      window.location.href = link(URLS.txn, txn.txn_id) + (txn.crashed ? '?crashed=1' : '');
+    },
+  });
+
+  loadSeats().catch((e) => notify('Could not load seats: ' + e.message, 'danger'));
+});
+</script>
+{% endblock %}

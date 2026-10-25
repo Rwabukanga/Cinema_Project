@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}Customers{% endblock %}
+{% block page_title %}Customers &amp; Wallets{% endblock %}
+{% block breadcrumb %}Customers{% endblock %}
+
+{% block content %}
+<div class="card card-primary card-outline mb-4">
+  <div class="card-header d-flex align-items-center">
+    <h3 class="card-title mb-0"><i class="bi bi-people-fill me-2"></i>Customers <span class="badge text-bg-secondary ms-1">Server B</span></h3>
+    <button type="button" class="btn btn-primary btn-sm ms-auto" id="add-customer"><i class="bi bi-person-plus me-1"></i> Add customer</button>
+  </div>
+  <div class="card-body">
+    <table class="table table-hover align-middle w-100" id="customers">
+      <thead><tr><th>Customer</th><th>Login</th><th>Phone</th><th class="text-end">Balance</th><th class="text-end">Reserved</th><th class="text-end">Available</th><th class="text-end">Spent</th><th class="text-end">Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="card-footer text-secondary fs-7">Data: <code>GET {% url 'api:customer-list' %}</code>. People who sign up get a customer and a wallet automatically.</div>
+</div>
+
+<!-- Add / edit customer -->
+<div class="modal fade" id="customer-modal" tabindex="-1" aria-labelledby="customer-modal-title" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="customer-form" novalidate>
+      <div class="modal-header">
+        <h5 class="modal-title" id="customer-modal-title">Add customer</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-danger form-errors d-none"></div>
+        <div class="mb-3"><label class="form-label" for="c-name">Full name</label><input class="form-control" id="c-name" name="full_name" required></div>
+        <div class="mb-3"><label class="form-label" for="c-email">Email</label><input class="form-control" id="c-email" name="email" type="email" required></div>
+        <div class="mb-3"><label class="form-label" for="c-phone">Phone</label><input class="form-control" id="c-phone" name="phone"></div>
+        <div class="mb-1" id="balance-field"><label class="form-label" for="c-balance">Starting balance</label><input class="form-control" id="c-balance" name="initial_balance" type="number" step="0.01" min="0" value="100.00"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% include 'web/_topup_modal.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const { esc, money, initials, link, apiTable, apiForm, fillForm, confirmDelete, notify, modal } = Cine;
+  const URLS = {
+    list: "{% url 'api:customer-list' %}",
+    detail: "{% url 'api:customer-detail' 0 %}",
+    topUp: "{% url 'api:customer-top-up' 0 %}",
+    page: "{% url 'web:customer_detail' 0 %}",
+  };
+  let rows = [];
+  const num = (v, type) => (type === 'display' ? money(v) : Number(v));
+
+  const customers = apiTable(document.getElementById('customers'), {
+    url: URLS.list,
+    empty: 'No customers yet.',
+    onLoad: (data) => { rows = data; },
+    columns: [
+      { data: 'full_name', render: (v, type, row) => (type !== 'display' ? v :
+          `<div class="d-flex align-items-center"><span class="avatar-initials avatar-36 me-2">${initials(v)}</span>
+           <div><a href="${link(URLS.page, row.id)}" class="fw-semibold">${esc(v)}</a><div class="text-secondary fs-7">${esc(row.email)}</div></div></div>`) },
+      { data: 'username', render: (v) => (v ? `<span class="badge text-bg-info">${esc(v)}</span>` : '<span class="text-secondary fs-7">no login</span>') },
+      { data: 'phone', render: (v) => esc(v || '—') },
+      { data: 'balance', className: 'text-end', render: num },
+      { data: 'reserved', className: 'text-end', render: (v, type) => (type === 'display' ? (Number(v) ? `<span class="text-warning-emphasis fw-semibold">${money(v)}</span>` : money(v)) : Number(v)) },
+      { data: 'available', className: 'text-end', render: (v, type) => (type === 'display' ? `<b class="text-success">${money(v)}</b>` : Number(v)) },
+      { data: 'total_spent', className: 'text-end', render: num },
+      { data: null, orderable: false, className: 'text-end text-nowrap', render: (v, t, row) =>
+          `<button class="btn btn-sm btn-success" data-topup="${row.id}"><i class="bi bi-plus-circle me-1"></i>Top up</button>
+           <button class="btn btn-sm btn-outline-secondary" data-edit="${row.id}" aria-label="Edit"><i class="bi bi-pencil"></i></button>
+           <button class="btn btn-sm btn-outline-danger" data-delete="${row.id}" aria-label="Delete"><i class="bi bi-trash"></i></button>` },
+    ],
+  });
+
+  const form = document.getElementById('customer-form');
+  const dialog = document.getElementById('customer-modal');
+  function open(customer) {
+    form.reset();
+    fillForm(form, customer || {});
+    document.getElementById('balance-field').classList.toggle('d-none', !!customer);
+    form.dataset.method = customer ? 'PATCH' : 'POST';
+    form.dataset.url = customer ? link(URLS.detail, customer.id) : URLS.list;
+    document.getElementById('customer-modal-title').textContent = customer ? 'Edit customer' : 'Add customer';
+    modal(dialog).show();
+  }
+  document.getElementById('add-customer').addEventListener('click', () => open(null));
+  apiForm(form, {
+    getData: (f) => { const d = Cine.formData(f); if (f.dataset.method === 'PATCH') delete d.initial_balance; return d; },
+    onSuccess: (c) => { modal(dialog).hide(); notify(`${c.full_name} was saved.`); customers.reload(); },
+  });
+
+  // Top up
+  const topForm = document.getElementById('topup-form');
+  const topDialog = document.getElementById('topup-modal');
+  apiForm(topForm, {
+    onSuccess: (c) => { modal(topDialog).hide(); notify(`New balance of ${c.full_name}: ${money(c.balance)}.`); customers.reload(); },
+  });
+
+  document.getElementById('customers').addEventListener('click', (e) => {
+    const find = (attr) => { const b = e.target.closest(`[data-${attr}]`); return b && rows.find((r) => r.id == b.dataset[attr]); };
+    const edit = find('edit');
+    const del = find('delete');
+    const top = find('topup');
+    if (edit) open(edit);
+    if (del) confirmDelete(link(URLS.detail, del.id), del.full_name, () => customers.reload());
+    if (top) {
+      topForm.reset();
+      Cine.clearErrors(topForm);
+      topForm.dataset.url = link(URLS.topUp, top.id);
+      document.getElementById('topup-who').textContent = top.full_name;
+      modal(topDialog).show();
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}Transaction Log{% endblock %}
+{% block page_title %}Coordinator Transaction Log{% endblock %}
+{% block breadcrumb %}Transactions{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-3 col-6">
+    <div class="small-box text-bg-success"><div class="inner"><h3 id="n-committed">…</h3><p>Committed</p></div>
+      <i class="small-box-icon bi bi-check-circle-fill" aria-hidden="true"></i></div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="small-box text-bg-danger"><div class="inner"><h3 id="n-aborted">…</h3><p>Aborted (rolled back)</p></div>
+      <i class="small-box-icon bi bi-x-circle-fill" aria-hidden="true"></i></div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="small-box text-bg-warning"><div class="inner"><h3 id="n-open">…</h3><p>Open: need recovery</p></div>
+      <i class="small-box-icon bi bi-hourglass-split" aria-hidden="true"></i></div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="small-box text-bg-secondary"><div class="inner"><h3 id="n-total">…</h3><p>All transactions</p></div>
+      <i class="small-box-icon bi bi-diagram-3-fill" aria-hidden="true"></i></div>
+  </div>
+</div>
+
+<div class="card card-primary card-outline mb-4">
+  <div class="card-header d-flex align-items-center flex-wrap gap-2">
+    <h3 class="card-title mb-0"><i class="bi bi-journal-text me-2"></i>Write-ahead log of the coordinator</h3>
+    {% if request.user.is_staff %}
+    <button type="button" class="btn btn-warning btn-sm ms-auto" id="recover"><i class="bi bi-bandaid me-1"></i> Run recovery</button>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    <p class="text-secondary">Every booking writes here first. After a crash, recovery reads this log: a logged <b>COMMIT</b> is sent again, and a transaction with no decision is <b>ABORTED</b>.</p>
+    <table class="table table-hover align-middle w-100" id="transactions">
+      <thead><tr><th>Transaction</th><th>Customer</th><th>Seat</th><th>Votes A / B</th><th>State</th><th>Done</th><th class="text-end">Amount</th><th>Time</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+ {% comment %}  <div class="card-footer text-secondary fs-7">Data: <code>GET {% url 'api:transaction-list' %}</code>{% if request.user.is_staff %} · Recovery: <code>POST {% url 'api:transaction-recover' %}</code>{% endif %}</div>
+</div> {% endcomment %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const { Api, esc, badge, vote, money, dateTime, shortId, link, apiTable, notify } = Cine;
+  const URLS = {
+    list: "{% url 'api:transaction-list' %}",
+    recover: "{% url 'api:transaction-recover' %}",
+    page: "{% url 'web:transaction_detail' '00000000-0000-0000-0000-000000000000' %}",
+  };
+
+  const log = apiTable(document.getElementById('transactions'), {
+    url: URLS.list,
+    empty: 'No transactions yet. Book a ticket to start.',
+    onLoad: (rows) => {
+      const set = (id, v) => (document.getElementById(id).textContent = v);
+      set('n-committed', rows.filter((r) => r.state === 'committed').length);
+      set('n-aborted', rows.filter((r) => r.state === 'aborted').length);
+      set('n-open', rows.filter((r) => !r.completed).length);
+      set('n-total', rows.length);
+    },
+    columns: [
+      { data: 'txn_id', render: (v) => `<a href="${link(URLS.page, v)}"><strong>${shortId(v)}</strong></a>` },
+      { data: 'customer_name', render: esc },
+      { data: 'seat_no', render: (v, t, row) => `${esc(v || '—')} <span class="text-secondary fs-7">${esc(row.movie_title || '')}</span>` },
+      { data: null, orderable: false, render: (v, t, row) => `${vote(row.seat_vote)} ${vote(row.payment_vote)}` },
+      { data: 'state', render: (v, t, row) => badge(v, row.state_display) },
+      { data: 'completed', render: (v) => (v ? '<i class="bi bi-check-lg text-success"></i> Yes' : '<span class="text-danger fw-semibold">No</span>') },
+      { data: 'amount', className: 'text-end', render: (v, type) => (type === 'display' ? money(v) : Number(v)) },
+      { data: 'created_at', render: (v, type) => (type === 'display' ? dateTime(v) : v) },
+    ],
+  });
+
+  const button = document.getElementById('recover');
+  if (button) button.addEventListener('click', async () => {
+    button.disabled = true;
+    try {
+      const result = await Api.post(URLS.recover);
+      notify(result.recovered
+        ? `Recovery finished ${result.recovered} open transaction(s): ` + result.results.map((r) => `${shortId(r.txn_id)} ${r.action}`).join(', ')
+        : 'Nothing to recover: every transaction is complete.', result.recovered ? 'success' : 'info');
+      log.reload();
+    } catch (e) {
+      notify(e.message, 'danger');
+    } finally {
+      button.disabled = false;
+    }
+  });
+});
+</script>
+{% endblock %}

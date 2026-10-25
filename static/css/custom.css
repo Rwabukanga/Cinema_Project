@@ -1,0 +1,66 @@
+/* CineSync: small additions on top of AdminLTE 4 */
+
+/* Avatar circles with initials (navbar, user menu, customer list) */
+.avatar-initials {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--bs-primary); color: #fff; font-weight: 600;
+  width: 2.1rem; height: 2.1rem; flex-shrink: 0;
+}
+.avatar-36 { width: 36px; height: 36px; }
+.avatar-50 { width: 50px; height: 50px; font-size: 1.25rem; }
+.avatar-90 { width: 90px; height: 90px; font-size: 2.5rem; }
+.user-menu .user-image.avatar-initials { width: 2rem; height: 2rem; margin-top: -2px; }
+.user-header .avatar-initials { margin: 0 auto 8px; border: 3px solid rgba(255,255,255,.3); }
+.fs-7 { font-size: .85rem; }
+
+/* Brand icon instead of a logo image */
+.brand-icon { display: inline-flex; align-items: center; justify-content: center;
+  width: 33px; height: 33px; border-radius: 50%; background: var(--bs-primary); color: #fff; }
+
+/* Bootstrap-icon version of the AdminLTE small-box icon */
+.small-box .small-box-icon.bi { font-size: 64px; line-height: 1; height: auto; width: auto; opacity: .35; }
+
+/* Blinking alert button on the dashboard */
+.pulse { animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .65; transform: scale(.995); } }
+
+/* Form errors */
+.has-error .form-control, .has-error .form-select { border-color: var(--bs-form-invalid-border-color); }
+
+/* Seat map */
+.screen { text-align: center; letter-spacing: 8px; font-size: 12px; color: var(--bs-secondary-color);
+  border-top: 4px solid var(--bs-emphasis-color); border-radius: 50% 50% 0 0 / 14px 14px 0 0;
+  padding-top: 6px; margin: 0 auto 18px; max-width: 520px; }
+.seatmap { display: flex; flex-direction: column; align-items: center; gap: 8px; overflow-x: auto; }
+.seatrow { display: flex; gap: 8px; align-items: center; }
+.rowlabel { width: 18px; color: var(--bs-secondary-color); font-weight: 700; }
+.seat { position: relative; display: inline-block; margin: 0; }
+.seat input { position: absolute; opacity: 0; }
+.seat span { display: inline-block; width: 46px; padding: 8px 0; text-align: center; border-radius: 8px 8px 4px 4px;
+  font-size: 13px; font-weight: 600; border: 2px solid transparent; cursor: pointer; user-select: none; }
+.seat-available span { background: var(--bs-success-bg-subtle); color: var(--bs-success-text-emphasis); }
+.seat-available span:hover { border-color: var(--bs-success); }
+.seat-held span { background: var(--bs-warning-bg-subtle); color: var(--bs-warning-text-emphasis); cursor: not-allowed; }
+.seat-booked span { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); cursor: not-allowed; text-decoration: line-through; }
+.seat input:checked + span { background: var(--bs-primary); color: #fff; border-color: var(--bs-emphasis-color); }
+.seat input:focus-visible + span { outline: 3px solid var(--bs-primary); outline-offset: 2px; }
+.seat-legend { text-align: center; color: var(--bs-secondary-color); font-size: 14px; margin: 16px 0 0; }
+.seat-legend .seat span { width: 34px; padding: 3px 0; font-size: 11px; margin: 0 4px 0 12px; cursor: default; }
+
+/* Two-phase commit step cards */
+.step-card { border-top: 4px solid var(--bs-border-color); }
+.step-card.done { border-top-color: var(--bs-primary); }
+.step-num { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bs-secondary-bg); font-weight: 700; margin-bottom: 6px; }
+.step-card.done .step-num { background: var(--bs-primary); color: #fff; }
+
+/* Sign in / sign up pages */
+.brand-icon-lg { width: 64px; height: 64px; font-size: 30px; }
+.register-box-wide { width: 560px; max-width: 94vw; }
+.login-box, .register-box { margin-top: 2rem; margin-bottom: 2rem; }
+
+/* DataTables 3 inside AdminLTE cards */
+.dt-container .dt-search input { border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius); padding: .3rem .6rem; background: var(--bs-body-bg); color: var(--bs-body-color); }
+.dt-container .dt-length select { border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius); background: var(--bs-body-bg); color: var(--bs-body-color); }
+.dt-container .dt-paging .dt-paging-button.current { background: var(--bs-primary) !important; color: #fff !important; border-color: var(--bs-primary) !important; }
+table.dataTable { color: var(--bs-body-color); }

@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}{{ customer.full_name }}{% endblock %}
+{% block page_title %}{% if customer.user_id == request.user.pk %}My Wallet{% else %}{{ customer.full_name }}{% endif %}{% endblock %}
+{% block breadcrumb_parent %}{% if request.user.is_staff %}<li class="breadcrumb-item"><a href="{% url 'web:customer_list' %}">Customers</a></li>{% endif %}{% endblock %}
+{% block breadcrumb %}{{ customer.full_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+  <!-- Profile + wallet -->
+  <div class="col-lg-4">
+    <div class="card card-primary card-outline mb-4">
+      <div class="card-body text-center">
+        <span class="avatar-initials avatar-90 mb-2">{{ customer.full_name|slice:":1"|upper }}</span>
+        <h3 class="mb-0 fs-4">{{ customer.full_name }}</h3>
+        <p class="text-secondary mb-3">{{ customer.email }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</p>
+        <ul class="list-group list-group-flush text-start">
+          <li class="list-group-item d-flex justify-content-between"><span>Balance</span><b id="w-balance">…</b></li>
+          <li class="list-group-item d-flex justify-content-between"><span>Reserved <span class="text-secondary fs-7">(Phase 1, not final)</span></span><span id="w-reserved">…</span></li>
+          <li class="list-group-item d-flex justify-content-between fs-5"><span>Available</span><b class="text-success" id="w-available">…</b></li>
+          <li class="list-group-item d-flex justify-content-between"><span>Tickets paid</span><span id="w-count">…</span></li>
+          <li class="list-group-item d-flex justify-content-between"><span>Total spent</span><span id="w-spent">…</span></li>
+        </ul>
+      </div>
+      <div class="card-footer">
+        <button type="button" class="btn btn-success w-100" id="topup-button"><i class="bi bi-plus-circle me-1"></i> Top up wallet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="col-lg-8">
+    <div class="card mb-4">
+      <div class="card-header p-2">
+        <ul class="nav nav-pills" role="tablist">
+          <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-payments" type="button" role="tab">Payments <span class="badge text-bg-secondary">Server B</span></button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-bookings" type="button" role="tab">Bookings <span class="badge text-bg-secondary">Server A</span></button></li>
+        </ul>
+      </div>
+      <div class="card-body tab-content">
+        <div class="tab-pane fade show active" id="tab-payments" role="tabpanel">
+          <table class="table table-hover align-middle w-100" id="payments">
+            <thead><tr><th>#</th><th class="text-end">Amount</th><th>Status</th><th>Created</th><th class="text-end">Transaction</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="tab-pane fade" id="tab-bookings" role="tabpanel">
+          <table class="table table-hover align-middle w-100" id="bookings">
+            <thead><tr><th>Movie</th><th>Showtime</th><th>Seat</th><th>Status</th><th class="text-end">Transaction</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% include 'web/_topup_modal.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const { Api, esc, badge, money, dateTime, shortId, link, apiTable, apiForm, notify, modal } = Cine;
+  const ID = {{ customer.pk }};
+  const URLS = {
+    customer: "{% url 'api:customer-detail' customer.pk %}",
+    topUp: "{% url 'api:customer-top-up' customer.pk %}",
+    payments: "{% url 'api:payment-list' %}?customer={{ customer.pk }}",
+    bookings: "{% url 'api:booking-list' %}?customer={{ customer.pk }}",
+    seatMap: "{% url 'web:showtime_detail' 0 %}",
+    txn: "{% url 'web:transaction_detail' '00000000-0000-0000-0000-000000000000' %}",
+  };
+  const set = (id, v) => (document.getElementById(id).textContent = v);
+
+  function showWallet(c) {
+    set('w-balance', money(c.balance));
+    set('w-reserved', money(c.reserved));
+    set('w-available', money(c.available));
+    set('w-count', c.payments_count);
+    set('w-spent', money(c.total_spent));
+  }
+  Api.get(URLS.customer).then(showWallet).catch((e) => notify(e.message, 'danger'));
+
+  const payments = apiTable(document.getElementById('payments'), {
+    url: URLS.payments,
+    empty: 'No payments yet.',
+    columns: [
+      { data: 'id' },
+      { data: 'amount', className: 'text-end', render: (v, type) => (type === 'display' ? money(v) : Number(v)) },
+      { data: 'status', render: (v) => badge(v) },
+      { data: 'created_at', render: (v, type) => (type === 'display' ? dateTime(v) : v) },
+      { data: 'txn_id', className: 'text-end', render: (v) => `<a href="${link(URLS.txn, v)}">${shortId(v)}</a>` },
+    ],
+  });
+  apiTable(document.getElementById('bookings'), {
+    url: URLS.bookings,
+    empty: 'No bookings yet.',
+    columns: [
+      { data: 'movie_title', render: (v, t, row) => `<a href="${link(URLS.seatMap, row.showtime)}">${esc(v)}</a>` },
+      { data: 'start_time', render: (v, type) => (type === 'display' ? dateTime(v) : v) },
+      { data: 'seat_no', render: (v) => `<span class="badge text-bg-light border">${esc(v)}</span>` },
+      { data: 'status', render: (v) => badge(v) },
+      { data: 'txn_id', className: 'text-end', render: (v) => `<a href="${link(URLS.txn, v)}">${shortId(v)}</a>` },
+    ],
+  });
+
+  // Top up: POST /api/customers/<id>/top-up/
+  const topForm = document.getElementById('topup-form');
+  topForm.dataset.url = URLS.topUp;
+  document.getElementById('topup-who').textContent = "{{ customer.full_name|escapejs }}";
+  document.getElementById('topup-button').addEventListener('click', () => modal(document.getElementById('topup-modal')).show());
+  apiForm(topForm, {
+    onSuccess: (c) => {
+      modal(document.getElementById('topup-modal')).hide();
+      showWallet(c);
+      notify(`Money added. New balance: ${money(c.balance)}.`);
+    },
+  });
+});
+</script>
+{% endblock %}

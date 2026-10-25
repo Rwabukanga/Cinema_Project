@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block breadcrumb %}Overview{% endblock %}
+
+{% block content %}
+<!-- Open transactions = a 2PC was interrupted (e.g. coordinator crash). It blinks. -->
+<div class="row mb-3 d-none" id="open-alert">
+  <div class="col-12">
+    <a href="{% url 'web:transaction_list' %}" class="btn btn-danger w-100 shadow-sm pulse">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i>
+      <span id="open-alert-text"></span>
+    </a>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Stat Box 1: Movies -->
+  <div class="col-lg-3 col-6">
+    <div class="small-box text-bg-info">
+      <div class="inner">
+        <h3 id="stat-movies">…</h3>
+        <p>Movies · <span id="stat-showtimes">…</span> upcoming showtimes</p>
+      </div>
+      <i class="small-box-icon bi bi-film" aria-hidden="true"></i>
+      <a href="{% url 'web:movie_list' %}" class="small-box-footer link-dark link-underline-opacity-0 link-underline-opacity-50-hover">
+        View movies <i class="bi bi-arrow-right-circle"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- Stat Box 2: Seat occupancy -->
+  <div class="col-lg-3 col-6">
+    <div class="small-box text-bg-primary">
+      <div class="inner">
+        <h3><span id="stat-occupancy">…</span><sup class="fs-5">%</sup></h3>
+        <p>Seats booked (<span id="stat-seats">…</span>)</p>
+      </div>
+      <i class="small-box-icon bi bi-grid-3x3-gap-fill" aria-hidden="true"></i>
+      <a href="{% url 'web:showtime_list' %}" class="small-box-footer link-light link-underline-opacity-0 link-underline-opacity-50-hover">
+        Book a seat <i class="bi bi-arrow-right-circle"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- Stat Box 3: Revenue (staff) or my wallet (customer) -->
+  <div class="col-lg-3 col-6">
+    <div class="small-box text-bg-success">
+      <div class="inner">
+        <h3 id="stat-money">…</h3>
+        <p id="stat-money-label">…</p>
+      </div>
+      <i class="small-box-icon bi bi-cash-coin" aria-hidden="true"></i>
+      <a href="{% if request.user.is_staff %}{% url 'web:payment_list' %}{% else %}{% url 'web:my_wallet' %}{% endif %}" class="small-box-footer link-light link-underline-opacity-0 link-underline-opacity-50-hover">
+        {% if request.user.is_staff %}View payments{% else %}Open my wallet{% endif %} <i class="bi bi-arrow-right-circle"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- Stat Box 4: Transactions -->
+  <div class="col-lg-3 col-6">
+    <div class="small-box text-bg-warning">
+      <div class="inner">
+        <h3><span id="stat-committed">…</span> <span class="fs-5">/ <span id="stat-aborted">…</span></span></h3>
+        <p>Committed / aborted{% if not request.user.is_staff %} (mine){% endif %}</p>
+      </div>
+      <i class="small-box-icon bi bi-diagram-3-fill" aria-hidden="true"></i>
+      <a href="{% url 'web:transaction_list' %}" class="small-box-footer link-dark link-underline-opacity-0 link-underline-opacity-50-hover">
+        Transaction log <i class="bi bi-arrow-right-circle"></i>
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- LEFT SIDE: Recent transactions (8/12 width) -->
+  <div class="col-lg-8">
+    <div class="card mb-4">
+      <div class="card-header text-bg-dark">
+        <h3 class="card-title"><b>Recent Booking Transactions</b> <span class="fs-7 fw-normal opacity-75">(coordinator log)</span></h3>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table m-0 table-hover align-middle">
+            <thead>
+              <tr>
+                <th>Transaction</th>
+                <th>Customer</th>
+                <th>Seat</th>
+                <th class="text-nowrap">Votes A / B</th>
+                <th>Status</th>
+                <th class="text-end">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="recent-body">
+              <tr><td colspan="6" class="text-center text-secondary py-4">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer clearfix">
+        <a href="{% url 'web:showtime_list' %}" class="btn btn-sm btn-info float-start"><i class="bi bi-ticket-perforated me-1"></i> Book a ticket</a>
+        <a href="{% url 'web:transaction_list' %}" class="btn btn-sm btn-secondary float-end">View all transactions</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT SIDE (4/12 width) -->
+  <div class="col-lg-4">
+    {% if not request.user.is_staff %}
+    <div class="card card-success card-outline mb-4" id="wallet-card">
+      <div class="card-header"><h3 class="card-title"><i class="bi bi-wallet2 me-1"></i> My Wallet</h3></div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between"><span>Balance</span><b id="w-balance">…</b></div>
+        <div class="d-flex justify-content-between text-secondary"><span>Reserved (waiting for 2PC)</span><span id="w-reserved">…</span></div>
+        <hr class="my-2">
+        <div class="d-flex justify-content-between fs-5"><span>Available</span><b class="text-success" id="w-available">…</b></div>
+      </div>
+      <div class="card-footer text-center"><a href="{% url 'web:my_wallet' %}">Top up · payments history</a></div>
+    </div>
+    {% endif %}
+
+    <div class="card mb-4">
+      <div class="card-header text-bg-dark"><h3 class="card-title">Transaction Outcomes</h3></div>
+      <div class="card-body">
+        <canvas id="txnChart" height="200" aria-label="Committed, aborted and open transactions"></canvas>
+        <p class="text-center text-secondary mb-0 d-none" id="chart-empty">No transactions yet.</p>
+        <ul class="list-group list-group-flush mt-2" id="chart-legend"></ul>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header text-bg-dark"><h3 class="card-title">Upcoming Showtimes</h3></div>
+      <div class="card-body" id="upcoming-body"><p class="text-center text-secondary mb-0">Loading…</p></div>
+      <div class="card-footer text-center">
+        <a href="{% url 'web:showtime_list' %}" class="text-uppercase">View all showtimes</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async function () {
+  const { Api, esc, badge, vote, money, dateTime, shortId, link, notify } = Cine;
+  const URLS = {
+    api: "{% url 'api:dashboard' %}",
+    txn: "{% url 'web:transaction_detail' '00000000-0000-0000-0000-000000000000' %}",
+    showtime: "{% url 'web:showtime_detail' 0 %}",
+  };
+  const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+
+  let d;
+  try { d = await Api.get(URLS.api); } catch (e) { notify('Could not load the dashboard: ' + e.message, 'danger'); return; }
+
+  // Alert banner
+  if (d.open > 0) {
+    set('open-alert-text', `${d.open} transaction${d.open > 1 ? 's were' : ' was'} left open by a crash. Seats and money are still held. Click here to run recovery.`);
+    document.getElementById('open-alert').classList.remove('d-none');
+  }
+
+  // Stat boxes
+  set('stat-movies', d.movies);
+  set('stat-showtimes', d.upcoming_showtimes);
+  set('stat-occupancy', d.occupancy);
+  set('stat-seats', `${d.seats_booked} of ${d.seats_total}`);
+  set('stat-committed', d.committed);
+  set('stat-aborted', d.aborted);
+  if (d.is_staff || !d.my_customer) {
+    set('stat-money', money(d.revenue));
+    set('stat-money-label', `Revenue from ${d.customers} customers`);
+  } else {
+    set('stat-money', money(d.my_customer.available));
+    set('stat-money-label', 'Available in my wallet');
+    set('w-balance', money(d.my_customer.balance));
+    set('w-reserved', money(d.my_customer.reserved));
+    set('w-available', money(d.my_customer.available));
+  }
+
+  // Recent transactions
+  document.getElementById('recent-body').innerHTML = d.recent_transactions.length
+    ? d.recent_transactions.map((t) => `
+      <tr>
+        <td class="text-nowrap"><a href="${link(URLS.txn, t.txn_id)}"><strong>${shortId(t.txn_id)}</strong></a></td>
+        <td>${esc(t.customer_name)}</td>
+        <td>${esc(t.seat_no || '—')} <span class="text-secondary fs-7">${esc(t.movie_title || '')}</span></td>
+        <td class="text-nowrap">${vote(t.seat_vote)} ${vote(t.payment_vote)}</td>
+        <td>${badge(t.state, t.state_display)}</td>
+        <td class="text-end">${money(t.amount)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" class="text-center text-secondary py-4">No transactions yet. Book a ticket to start.</td></tr>';
+
+  // Upcoming showtimes with occupancy bars
+  document.getElementById('upcoming-body').innerHTML = d.upcoming.length
+    ? d.upcoming.map((st) => {
+      const color = st.occupancy >= 80 ? 'bg-danger' : st.occupancy >= 50 ? 'bg-warning' : 'bg-success';
+      return `<div class="mb-3">
+        <div class="d-flex justify-content-between">
+          <a href="${link(URLS.showtime, st.id)}" class="fw-semibold text-decoration-none">${esc(st.movie_title)}</a>
+          <span class="text-secondary fs-7">${st.booked_seats}/${st.total_seats} seats</span>
+        </div>
+        <div class="text-secondary fs-7 mb-1">${dateTime(st.start_time)} · ${esc(st.hall)}</div>
+        <div class="progress" role="progressbar" aria-label="${st.occupancy}% booked" aria-valuenow="${st.occupancy}" aria-valuemin="0" aria-valuemax="100" style="height: 8px">
+          <div class="progress-bar ${color}" style="width: ${st.occupancy}%"></div>
+        </div>
+      </div>`;
+    }).join('')
+    : '<p class="text-center text-secondary mb-0">No upcoming showtimes.</p>';
+
+  // Doughnut chart (+ the same numbers as text, in case Chart.js can't load)
+  const values = [d.committed, d.aborted, d.open];
+  document.getElementById('chart-legend').innerHTML = [
+    ['Committed', d.committed, 'success'], ['Aborted', d.aborted, 'danger'], ['Open (needs recovery)', d.open, 'warning'],
+  ].map(([label, n, color]) => `<li class="list-group-item d-flex justify-content-between px-0">
+      <span><i class="bi bi-circle-fill text-${color} me-2"></i>${label}</span><b>${n}</b></li>`).join('');
+  if (values.every((v) => v === 0)) {
+    document.getElementById('txnChart').classList.add('d-none');
+    document.getElementById('chart-empty').classList.remove('d-none');
+  } else if (typeof Chart !== 'undefined') {
+    new Chart(document.getElementById('txnChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Committed', 'Aborted', 'Open (needs recovery)'],
+        datasets: [{ data: values, backgroundColor: ['#198754', '#dc3545', '#ffc107'] }],
+      },
+      options: { plugins: { legend: { position: 'bottom' } }, cutout: '60%' },
+    });
+  }
+});
+</script>
+{% endblock %}

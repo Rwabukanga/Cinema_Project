@@ -1,0 +1,136 @@
+{% load static i18n %}
+{% get_current_language as CURRENT_LANGUAGE %}
+<!doctype html>
+<html lang="{{ CURRENT_LANGUAGE }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Dashboard{% endblock %} | CineSync</title>
+
+  <!-- Light/dark mode: runs before the page draws, so dark mode doesn't flash white -->
+  <script>
+    (() => {
+      'use strict';
+      const root = document.documentElement;
+      if (root.getAttribute('data-lte-color-mode') === 'off') return;
+      const STORAGE_KEY = 'lte-theme';
+      let stored = null;
+      try { stored = localStorage.getItem(STORAGE_KEY); } catch { /* private mode */ }
+      const authored = root.getAttribute('data-bs-theme');
+      let resolved = 'light';
+      if (stored === 'dark' || stored === 'light') {
+        resolved = stored;
+      } else if (authored === 'dark' || authored === 'light') {
+        resolved = authored;
+      } else if (globalThis.matchMedia('(prefers-color-scheme: dark)').matches) {
+        resolved = 'dark';
+      }
+      root.setAttribute('data-bs-theme', resolved);
+      root.style.colorScheme = resolved;
+      if (resolved !== authored) root.setAttribute('data-lte-theme-resolved', '');
+    })();
+  </script>
+
+  <!-- 1. Font and icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.3.0/index.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.16.0/styles/overlayscrollbars.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+
+  <!-- 2. AdminLTE 4 (includes Bootstrap 5). Loaded ONCE. -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4/dist/css/adminlte.min.css">
+
+  <!-- 3. DataTables 3 (no jQuery needed). Loaded ONCE. -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/v/dt/dt-3.1.3/datatables.min.css">
+
+  <!-- 4. Your own changes, last so they win -->
+  <link rel="stylesheet" href="{% static 'css/custom.css' %}">
+
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="layout-fixed sidebar-expand-lg sidebar-mini sidebar-open bg-body-tertiary">
+<div class="app-wrapper">
+
+  {% include 'navbar.html' %}
+  {% include 'sidebar.html' %}
+
+  <main class="app-main">
+    <div class="app-content-header">
+      <div class="container-fluid">
+        <div class="row">
+          <div class="col-sm-6">
+            <h1 class="mb-0 fs-3">{% block page_title %}Dashboard{% endblock %}</h1>
+          </div>
+          <div class="col-sm-6">
+            <ol class="breadcrumb float-sm-end">
+              <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+              {% block breadcrumb_parent %}{% endblock %}
+              <li class="breadcrumb-item active" aria-current="page">{% block breadcrumb %}{% endblock %}</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="app-content">
+      <div class="container-fluid">
+        {% include 'partials/messages.html' %}
+        <!-- Messages from API calls (success, errors) appear here -->
+        <div id="api-alerts" aria-live="polite"></div>
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    {% comment %} <div class="float-end d-none d-sm-inline">Built with AdminLTE · Django REST Framework</div> {% endcomment %}
+    <strong>&copy; 2026 Distributed Cinema Booking System.</strong>
+  </footer>
+</div>
+
+<!-- 5. Core scripts, each loaded ONCE, in this order -->
+<script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.16.0/browser/overlayscrollbars.browser.es6.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@4/dist/js/adminlte.min.js"></script>
+
+<script>
+  // Custom scrollbar in the sidebar
+  document.addEventListener('DOMContentLoaded', function () {
+    const sidebarWrapper = document.querySelector('.sidebar-wrapper');
+    if (sidebarWrapper && window.innerWidth > 992 && globalThis.OverlayScrollbarsGlobal?.OverlayScrollbars) {
+      OverlayScrollbarsGlobal.OverlayScrollbars(sidebarWrapper, {
+        scrollbars: { theme: 'os-theme-light', autoHide: 'leave', clickScroll: true },
+      });
+    }
+  });
+</script>
+
+<!-- 6. DataTables: every <table class="datatable"> gets search, sorting and paging.
+        Tables filled from the API use Cine.apiTable() instead (see static/js/app.js). -->
+<script src="https://cdn.datatables.net/v/dt/dt-3.1.3/datatables.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof DataTable === 'undefined') {
+      console.error('DataTables did not load');
+      return;
+    }
+    const lang = (document.documentElement.lang || 'en').slice(0, 2);
+    document.querySelectorAll('table.datatable').forEach(function (table) {
+      new DataTable(table, {
+        pageLength: 10,
+        lengthMenu: [5, 10, 25, 50, 100],
+        order: [],
+        autoWidth: false,
+        language: lang === 'fr'
+          ? { url: 'https://cdn.datatables.net/plug-ins/2.1.8/i18n/fr-FR.json' }
+          : { search: '', searchPlaceholder: 'Search…' },
+      });
+    });
+  });
+</script>
+
+<!-- 7. Talks to the REST API -->
+<script src="{% static 'js/app.js' %}"></script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
