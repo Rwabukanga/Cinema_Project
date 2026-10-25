@@ -1,7 +1,5 @@
 # Cinema_Project
 
-# Cine: Distributed Cinema Booking (Django + REST API + AdminLTE)
-
 A cinema ticket booking system that uses **two-phase commit (2PC)** so a seat is never booked without being paid for, and money is never taken without a seat.
 
 - **Back end:** Django 5 + Django REST Framework. **Every view is an API endpoint.**
@@ -10,9 +8,6 @@ A cinema ticket booking system that uses **two-phase commit (2PC)** so a seat is
 - **Database:** Django's default database (`db.sqlite3`).
 
 ```
-Browser (AdminLTE pages + static/js/app.js)
-        │  fetch()  JSON
-        ▼
 REST API  /api/...            (api app: serializers + viewsets)
         │
         ├── seats        "Server A"    Movie, Showtime, Seat, Booking        prepare / commit / abort
