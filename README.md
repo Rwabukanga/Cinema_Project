@@ -202,7 +202,6 @@ Cine.notify(message, type)                                // AdminLTE alert
 4. Book with scenario **Payment server is down**. It's **ABORTED** (a timeout counts as NO).
 5. Book with scenario **Coordinator crashes before deciding**. It's **PREPARED**: the seat is yellow (held) and the money is reserved. The dashboard blinks red. *This is why 2PC is called blocking.*
 6. **Transaction Log → Run recovery**. The transaction is aborted, and the seat and the money are released.
-7. Open **REST API** in the sidebar and click any GET link to show the JSON behind each page.
 
 ---
 
